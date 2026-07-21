@@ -1,0 +1,1 @@
+// JavaScript functionality is embedded in the HTML file

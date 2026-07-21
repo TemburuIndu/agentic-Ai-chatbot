@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entity - AI Document Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .chat-container {
+            width: 95%;
+            max-width: 900px;
+            height: 95vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+        .bot-message {
+            justify-content: flex-start;
+        }
+        .user-message {
+            justify-content: flex-end;
+        }
+        .message-content {
+            max-width: 75%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            line-height: 1.4;
+        }
+        .bot-message .message-content {
+            background: #e8e8e8;
+            color: #333;
+        }
+        .user-message .message-content {
+            background: #007bff;
+            color: white;
+        }
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+            border-radius: 0 0 12px 12px;
+        }
+        .file-upload-area {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .file-upload-button {
+            display: inline-block;
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 15px 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+            color: #6c757d;
+        }
+        .file-upload-button:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+        }
+        .file-uploaded {
+            background: #d4edda !important;
+            border-color: #28a745 !important;
+            color: #155724 !important;
+        }
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        #questionInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            outline: none;
+            font-size: 16px;
+        }
+        #questionInput:focus {
+            border-color: #007bff;
+        }
+        #questionInput:disabled {
+            background: #f8f9fa;
+        }
+        #sendButton {
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #sendButton:hover:not(:disabled) {
+            background: #0056b3;
+        }
+        #sendButton:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+        .loading-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #007bff;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 Entity AI Assistant</h1>
+            <p>Upload a document and ask questions</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                <div class="message-content">
+                    Hello! I'm Entity, your AI document assistant. Please upload a document and ask me questions about it.
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <div class="file-upload-area">
+                <input type="file" id="fileInput" accept=".pdf,.docx,.pptx,.xlsx,.jpg,.png" hidden>
+                <div class="file-upload-button" onclick="document.getElementById('fileInput').click()">
+                    📎 Upload Document
+                </div>
+                <div class="file-info" id="fileInfo"></div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="questionInput" placeholder="Ask a question about your document..." disabled>
+                <button id="sendButton" onclick="sendMessage()" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let uploadedFile = null;
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                uploadedFile = file;
+                const fileInfo = document.getElementById('fileInfo');
+                const uploadButton = document.querySelector('.file-upload-button');
+                
+                fileInfo.textContent = `📄 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                uploadButton.textContent = '✅ Document Uploaded';
+                uploadButton.classList.add('file-uploaded');
+                
+                document.getElementById('questionInput').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                
+                addMessage('bot', `Great! I've received your document "${file.name}". Now you can ask me questions about it.`);
+            }
+        });
+        
+        document.getElementById('questionInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        function addMessage(type, content) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.innerHTML = content;
+            
+            messageDiv.appendChild(messageContent);
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function addLoadingMessage() {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            messageDiv.id = 'loadingMessage';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.innerHTML = `
+                Thinking
+                <div class="loading-dots">
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                </div>
+            `;
+            
+            messageDiv.appendChild(messageContent);
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function removeLoadingMessage() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+        
+        async function sendMessage() {
+            const questionInput = document.getElementById('questionInput');
+            const question = questionInput.value.trim();
+            
+            if (!question || !uploadedFile) return;
+            
+            addMessage('user', question);
+            questionInput.value = '';
+            
+            questionInput.disabled = true;
+            document.getElementById('sendButton').disabled = true;
+            
+            addLoadingMessage();
+            
+            try {
+                const formData = new FormData();
+                formData.append('document', uploadedFile);
+                formData.append('questions', JSON.stringify([question]));
+                
+                const response = await fetch('/run', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                removeLoadingMessage();
+                
+                if (result.error) {
+                    addMessage('bot', `❌ Error: ${result.error}`);
+                } else {
+                    const answer = result.answers[0] || 'No answer could be generated.';
+                    addMessage('bot', answer);
+                }
+            } catch (error) {
+                removeLoadingMessage();
+                addMessage('bot', `❌ Error: ${error.message}`);
+            }
+            
+            questionInput.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            questionInput.focus();
+        }
+    </script>
+</body>
+</html>
